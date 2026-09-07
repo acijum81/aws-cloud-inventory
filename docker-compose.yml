@@ -1,0 +1,28 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: aws_inventory
+      POSTGRES_USER: inventory
+      POSTGRES_PASSWORD: inventory
+    ports: ["5432:5432"]
+    volumes: ["postgres_data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U inventory -d aws_inventory"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: postgresql+psycopg://inventory:inventory@postgres:5432/aws_inventory
+      AWS_DEFAULT_REGION: us-east-1
+    ports: ["8000:8000"]
+    depends_on:
+      postgres: {condition: service_healthy}
+  frontend:
+    build: ./frontend
+    ports: ["3000:80"]
+    depends_on: [backend]
+volumes:
+  postgres_data:

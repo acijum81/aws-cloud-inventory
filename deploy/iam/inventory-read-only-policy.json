@@ -1,0 +1,25 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AwsInventoryReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:Describe*",
+        "rds:Describe*",
+        "rds:ListTagsForResource",
+        "s3:ListAllMyBuckets",
+        "lambda:ListFunctions",
+        "iam:ListUsers",
+        "iam:ListRoles",
+        "elasticloadbalancing:Describe*",
+        "ecs:ListClusters",
+        "ecs:DescribeClusters",
+        "eks:ListClusters",
+        "eks:DescribeCluster",
+        "sts:GetCallerIdentity"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
