@@ -2,10 +2,9 @@
   "schema_version": 1,
   "diagram_type": "lifecycle",
   "meta": {
-    "title": "Ciclo de Vida de un Inventory Run",
+    "title": "Ciclo de Vida — Inventory Run",
     "output": "lifecycle.html",
     "quality_profile": "showcase",
-    "viewBox": [980, 720],
     "views": [
       {
         "id": "main-path",
@@ -14,16 +13,16 @@
         "note": "El run avanza de cola a ejecución y termina completado cuando todos los colectores finalizan."
       },
       {
-        "id": "failure-cancel",
-        "label": "Fallo y cancelación",
-        "focus": ["running", "cancel_requested", "cancelled", "failed"],
-        "note": "Un error no controlado termina el run como fallido; la cancelación puede ocurrir durante la ejecución."
+        "id": "cancel-exit",
+        "label": "Cancelación y fallo",
+        "focus": ["running", "cancel_wait", "cancelled", "failed"],
+        "note": "POST /cancel registra la señal; el loop la detecta y termina el run. Una excepción no controlada produce failed."
       }
     ]
   },
   "lanes": [
-    { "id": "main", "label": "Ciclo principal" },
-    { "id": "interrupt", "label": "Interrupciones" },
+    { "id": "main",     "label": "Ciclo principal" },
+    { "id": "waiting",  "label": "Espera" },
     { "id": "terminal", "label": "Salidas terminales" }
   ],
   "states": [
@@ -41,7 +40,7 @@
       "id": "running",
       "type": "active",
       "label": "Running",
-      "sublabel": "colectando AWS",
+      "sublabel": "recolectando AWS",
       "lane": "main",
       "col": 2,
       "step": "02",
@@ -58,11 +57,11 @@
       "tag": "éxito"
     },
     {
-      "id": "cancel_requested",
+      "id": "cancel_wait",
       "type": "waiting",
       "label": "Cancel Requested",
-      "sublabel": "señal de stop",
-      "lane": "interrupt",
+      "sublabel": "señal registrada",
+      "lane": "waiting",
       "col": 1,
       "tag": "señal"
     },
@@ -72,7 +71,7 @@
       "label": "Cancelled",
       "sublabel": "detenido",
       "lane": "terminal",
-      "col": 1,
+      "col": 0,
       "tag": "terminal"
     },
     {
@@ -87,43 +86,41 @@
   ],
   "transitions": [
     {
-      "id": "queued-to-running",
+      "id": "queued-running",
       "from": "queued",
       "to": "running",
       "label": "background task inicia"
     },
     {
-      "id": "running-to-completed",
+      "id": "running-completed",
       "from": "running",
       "to": "completed",
       "label": "save_many() ok",
-      "variant": "emphasis"
+      "variant": "emphasis",
+      "channelY": 100
     },
     {
-      "id": "cancel-signal",
+      "id": "running-cancel",
       "from": "running",
-      "to": "cancel_requested",
+      "to": "cancel_wait",
       "label": "POST /cancel",
-      "variant": "security",
-      "labelAt": [479, 230]
+      "variant": "security"
     },
     {
-      "id": "cancel-confirmed",
-      "from": "cancel_requested",
+      "id": "cancel-cancelled",
+      "from": "cancel_wait",
       "to": "cancelled",
       "label": "loop detecta flag",
-      "variant": "security",
-      "channelX": 760,
-      "labelAt": [760, 390]
+      "labelAt": [401, 420]
     },
     {
-      "id": "running-to-failed",
+      "id": "running-failed",
       "from": "running",
       "to": "failed",
-      "label": "excepción en task",
+      "label": "excepción",
       "variant": "security",
-      "fromSide": "right",
-      "toSide": "top"
+      "channelY": 210,
+      "channelX": 860
     }
   ],
   "cards": [
@@ -131,8 +128,8 @@
       "dot": "emerald",
       "title": "Flujo normal",
       "items": [
-        "El API crea el run en queued y retorna run_id al instante",
-        "El background task actualiza a running antes de recolectar",
+        "API crea el run en queued y retorna run_id al instante",
+        "Background task actualiza a running antes de recolectar",
         "completed se alcanza cuando todos los recursos están persistidos"
       ]
     },
@@ -140,9 +137,9 @@
       "dot": "amber",
       "title": "Cancelación cooperativa",
       "items": [
-        "POST /{run_id}/cancel registra una señal en CancellationRegistry",
-        "El loop de cuentas comprueba la señal entre cada cuenta",
-        "El run se marca cancelled con los recursos recolectados hasta ese punto"
+        "POST /{run_id}/cancel registra señal en CancellationRegistry",
+        "El loop entre cuentas comprueba la señal en cada iteración",
+        "El run termina cancelled con los recursos recolectados hasta ese punto"
       ]
     },
     {
@@ -150,8 +147,8 @@
       "title": "Fallo",
       "items": [
         "Una excepción no controlada en el background task marca failed",
-        "El mensaje de error queda en metadata del run",
-        "Los errores por colector no abortan el run completo"
+        "El mensaje de error queda en metadata del run (máx. 500 chars)",
+        "Los errores por colector individual no abortan el run completo"
       ]
     }
   ]
