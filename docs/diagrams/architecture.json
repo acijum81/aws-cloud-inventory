@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "AWS Cloud Inventory — Arquitectura del Sistema",
+    "output": "architecture.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "inventory-path",
+        "label": "Flujo principal de inventario",
+        "focus": ["postman", "api", "svc", "runner", "aws"],
+        "note": "Ruta desde la petición HTTP hasta la recolección de recursos AWS y su persistencia."
+      },
+      {
+        "id": "collectors",
+        "label": "Colectores AWS",
+        "focus": ["runner", "ec2", "s3", "rds", "elb"],
+        "note": "Los diez colectores de solo lectura y los servicios AWS que cubren."
+      },
+      {
+        "id": "data-layer",
+        "label": "Capa de datos",
+        "focus": ["api", "repo", "db"],
+        "note": "Persistencia de recursos, runs y errores en PostgreSQL vía SQLAlchemy."
+      }
+    ]
+  },
+  "components": [
+    { "id": "postman", "type": "external", "label": "Postman / Cliente HTTP", "sublabel": "operador", "pos": [40, 300], "size": [150, 60] },
+    { "id": "frontend", "type": "frontend", "label": "React Dashboard", "sublabel": "Vite · puerto 3000", "pos": [40, 440], "size": [150, 60] },
+    { "id": "api", "type": "backend", "label": "FastAPI", "sublabel": "puerto 8000", "pos": [280, 300], "size": [130, 60] },
+    { "id": "svc", "type": "backend", "label": "MVPInventoryService", "sublabel": "orquestador", "pos": [500, 220], "size": [150, 60] },
+    { "id": "session", "type": "security", "label": "AwsSessionFactory", "sublabel": "STS AssumeRole", "pos": [500, 100], "size": [150, 60] },
+    { "id": "runner", "type": "backend", "label": "InventoryRunner", "sublabel": "10 colectores", "pos": [730, 220], "size": [140, 60] },
+    { "id": "repo", "type": "backend", "label": "ResourceRepository", "sublabel": "SQLAlchemy 2.0", "pos": [500, 370], "size": [150, 60] },
+    { "id": "db", "type": "database", "label": "PostgreSQL 17", "sublabel": "puerto 5432", "pos": [730, 370], "size": [140, 60] },
+    { "id": "aws", "type": "cloud", "label": "AWS APIs", "sublabel": "us-east-1 + regiones", "pos": [950, 220], "size": [130, 60] },
+    { "id": "ec2", "type": "cloud", "label": "EC2 / EBS / VPC", "sublabel": "regional", "pos": [950, 100], "size": [130, 60] },
+    { "id": "s3", "type": "cloud", "label": "S3 / IAM", "sublabel": "global", "pos": [950, 310], "size": [130, 60] },
+    { "id": "rds", "type": "cloud", "label": "RDS / Lambda", "sublabel": "regional", "pos": [950, 420], "size": [130, 60] },
+    { "id": "elb", "type": "cloud", "label": "ELB / ECS / EKS", "sublabel": "regional", "pos": [950, 530], "size": [130, 60] }
+  ],
+  "boundaries": [
+    { "kind": "region", "label": "Docker / Podman Compose", "wraps": ["api", "svc", "session", "runner", "repo", "db", "frontend"] },
+    { "kind": "security-group", "label": "Solo lectura — sin mutaciones AWS", "wraps": ["runner", "aws", "ec2", "s3", "rds", "elb"] }
+  ],
+  "connections": [
+    { "id": "postman-api", "from": "postman", "to": "api", "label": "HTTP REST", "variant": "emphasis" },
+    { "id": "frontend-api", "from": "frontend", "to": "api", "label": "HTTP REST", "variant": "default" },
+    { "id": "api-svc", "from": "api", "to": "svc", "label": "run_accounts()", "variant": "emphasis" },
+    { "id": "svc-session", "from": "svc", "to": "session", "label": "create session", "variant": "security", "fromSide": "top", "toSide": "bottom" },
+    { "id": "svc-runner", "from": "svc", "to": "runner", "label": "collect()" },
+    { "id": "session-runner", "from": "session", "to": "runner", "label": "boto3 Session", "variant": "dashed", "fromSide": "right", "toSide": "top" },
+    { "id": "runner-aws", "from": "runner", "to": "aws", "label": "Describe* APIs", "variant": "emphasis" },
+    { "id": "aws-ec2", "from": "aws", "to": "ec2", "variant": "dashed", "fromSide": "top", "toSide": "right" },
+    { "id": "aws-s3", "from": "aws", "to": "s3", "variant": "dashed" },
+    { "id": "aws-rds", "from": "aws", "to": "rds", "variant": "dashed", "fromSide": "bottom", "toSide": "right" },
+    { "id": "aws-elb", "from": "aws", "to": "elb", "variant": "dashed", "fromSide": "bottom", "toSide": "right" },
+    { "id": "svc-repo", "from": "svc", "to": "repo", "label": "save_many()", "fromSide": "bottom", "toSide": "top", "labelAt": [575, 345] },
+    { "id": "api-repo", "from": "api", "to": "repo", "label": "list/summary", "variant": "dashed", "fromSide": "bottom", "toSide": "left" },
+    { "id": "repo-db", "from": "repo", "to": "db", "label": "SQL / psycopg3", "variant": "emphasis" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Backend hexagonal",
+      "items": [
+        "FastAPI: capa de presentación (routes)",
+        "MVPInventoryService: orquestación multi-cuenta y región",
+        "ResourceRepository: acceso a datos con SQLAlchemy 2.0"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Colectores AWS",
+      "items": [
+        "10 colectores: EC2, EBS, VPC, S3, RDS, Lambda, IAM, ELBv2, ECS, EKS",
+        "Colectores globales: S3 e IAM corren solo en us-east-1",
+        "AwsSessionFactory gestiona STS AssumeRole y reintentos"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Límite de solo lectura",
+      "items": [
+        "Solo operaciones Describe* y List*",
+        "Sin Create, Update, Delete ni mutaciones de etiquetas",
+        "Credenciales temporales vía STS — no se persisten"
+      ]
+    }
+  ]
+}

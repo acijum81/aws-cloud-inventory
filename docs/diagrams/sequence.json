@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Flujo de Ejecución de Inventario AWS",
+    "output": "sequence.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "launch",
+        "label": "Lanzamiento del inventario",
+        "focus": ["client", "api", "repo"],
+        "note": "El cliente lanza el run y recibe el run_id inmediatamente."
+      },
+      {
+        "id": "collection",
+        "label": "Recolección AWS",
+        "focus": ["svc", "session", "runner", "aws"],
+        "note": "El servicio orquesta colectores por cuenta y región."
+      },
+      {
+        "id": "persistence",
+        "label": "Persistencia y consulta",
+        "focus": ["svc", "repo", "db", "client"],
+        "note": "Los recursos se persisten y el cliente puede consultarlos."
+      }
+    ]
+  },
+  "participants": [
+    { "id": "client", "type": "external", "label": "Postman", "sublabel": "operador" },
+    { "id": "api", "type": "backend", "label": "FastAPI", "sublabel": "POST /runs" },
+    { "id": "repo", "type": "database", "label": "Repository", "sublabel": "PostgreSQL" },
+    { "id": "svc", "type": "backend", "label": "Inv. Service", "sublabel": "background" },
+    { "id": "session", "type": "security", "label": "Session", "sublabel": "STS Role" },
+    { "id": "runner", "type": "backend", "label": "Runner", "sublabel": "10 colectores" },
+    { "id": "aws", "type": "cloud", "label": "AWS APIs", "sublabel": "Describe*" },
+    { "id": "db", "type": "database", "label": "PostgreSQL", "sublabel": "recursos" }
+  ],
+  "segments": [
+    { "from": 130, "to": 270, "label": "Lanzamiento" },
+    { "from": 290, "to": 550, "label": "Recolección" },
+    { "from": 560, "to": 677, "label": "Persistencia y consulta" }
+  ],
+  "messages": [
+    { "id": "post-run", "from": "client", "to": "api", "y": 165, "label": "POST /api/v1/inventory-runs", "variant": "emphasis" },
+    { "id": "create-run", "from": "api", "to": "repo", "y": 196, "label": "create_run(queued)", "variant": "default" },
+    { "id": "run-created", "from": "repo", "to": "api", "y": 224, "label": "ok", "variant": "return" },
+    { "id": "queued-response", "from": "api", "to": "client", "y": 254, "label": "200 {run_id, status: queued}", "variant": "return" },
+    { "id": "update-running", "from": "svc", "to": "repo", "y": 310, "label": "update_run(running)", "variant": "default" },
+    { "id": "assume-role", "from": "svc", "to": "session", "y": 340, "label": "create / assume role", "variant": "security" },
+    { "id": "session-ok", "from": "session", "to": "svc", "y": 368, "label": "boto3 Session", "variant": "return" },
+    { "id": "collect-global", "from": "svc", "to": "runner", "y": 396, "label": "collect global (S3, IAM)", "variant": "emphasis" },
+    { "id": "runner-aws-global", "from": "runner", "to": "aws", "y": 420, "label": "ListBuckets / ListUsers", "variant": "default" },
+    { "id": "aws-resources-global", "from": "aws", "to": "runner", "y": 452, "label": "recursos globales", "variant": "return" },
+    { "id": "collect-regional", "from": "svc", "to": "runner", "y": 480, "label": "collect regional × región", "variant": "emphasis" },
+    { "id": "runner-aws-regional", "from": "runner", "to": "aws", "y": 506, "label": "Describe* por región", "variant": "default" },
+    { "id": "aws-resources-regional", "from": "aws", "to": "runner", "y": 536, "label": "recursos regionales", "variant": "return" },
+    { "id": "save-resources", "from": "svc", "to": "repo", "y": 566, "label": "save_many() + add_errors()", "variant": "emphasis" },
+    { "id": "repo-db-write", "from": "repo", "to": "db", "y": 598, "label": "INSERT resources / errors", "variant": "default" },
+    { "id": "update-completed", "from": "svc", "to": "repo", "y": 628, "label": "update_run(completed)", "variant": "default" },
+    { "id": "poll-status", "from": "client", "to": "api", "y": 638, "label": "GET /{run_id}", "variant": "default" },
+    { "id": "status-response", "from": "api", "to": "client", "y": 663, "label": "200 {status: completed}", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "api", "from": 160, "to": 260, "type": "backend" },
+    { "participant": "repo", "from": 191, "to": 232, "type": "database" },
+    { "participant": "svc", "from": 290, "to": 622, "type": "backend" },
+    { "participant": "session", "from": 335, "to": 375, "type": "security" },
+    { "participant": "runner", "from": 391, "to": 530, "type": "backend" },
+    { "participant": "aws", "from": 415, "to": 530, "type": "cloud" },
+    { "participant": "db", "from": 579, "to": 600, "type": "database" }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Respuesta inmediata",
+      "items": [
+        "El API retorna run_id en < 100 ms antes de recolectar",
+        "La recolección corre en background task de FastAPI",
+        "El cliente puede sondear el estado con GET /{run_id}"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "Recolección en dos fases",
+      "items": [
+        "Fase 1: colectores globales (S3, IAM) solo en us-east-1",
+        "Fase 2: colectores regionales × todas las regiones habilitadas",
+        "Cada colector falla de forma independiente sin abortar el run"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Credenciales AWS",
+      "items": [
+        "STS AssumeRole crea sesiones temporales por cuenta",
+        "No se persisten credenciales de larga duración",
+        "Retry estándar boto3 con 6 intentos máximo"
+      ]
+    }
+  ]
+}

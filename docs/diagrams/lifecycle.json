@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "meta": {
+    "title": "Ciclo de Vida de un Inventory Run",
+    "output": "lifecycle.html",
+    "quality_profile": "showcase",
+    "viewBox": [980, 720],
+    "views": [
+      {
+        "id": "main-path",
+        "label": "Camino principal",
+        "focus": ["queued", "running", "completed"],
+        "note": "El run avanza de cola a ejecución y termina completado cuando todos los colectores finalizan."
+      },
+      {
+        "id": "failure-cancel",
+        "label": "Fallo y cancelación",
+        "focus": ["running", "cancel_requested", "cancelled", "failed"],
+        "note": "Un error no controlado termina el run como fallido; la cancelación puede ocurrir durante la ejecución."
+      }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "Ciclo principal" },
+    { "id": "interrupt", "label": "Interrupciones" },
+    { "id": "terminal", "label": "Salidas terminales" }
+  ],
+  "states": [
+    {
+      "id": "queued",
+      "type": "start",
+      "label": "Queued",
+      "sublabel": "run_id generado",
+      "lane": "main",
+      "col": 0,
+      "step": "01",
+      "tag": "entrada"
+    },
+    {
+      "id": "running",
+      "type": "active",
+      "label": "Running",
+      "sublabel": "colectando AWS",
+      "lane": "main",
+      "col": 2,
+      "step": "02",
+      "tag": "trabajo"
+    },
+    {
+      "id": "completed",
+      "type": "success",
+      "label": "Completed",
+      "sublabel": "recursos persistidos",
+      "lane": "main",
+      "col": 4,
+      "step": "03",
+      "tag": "éxito"
+    },
+    {
+      "id": "cancel_requested",
+      "type": "waiting",
+      "label": "Cancel Requested",
+      "sublabel": "señal de stop",
+      "lane": "interrupt",
+      "col": 1,
+      "tag": "señal"
+    },
+    {
+      "id": "cancelled",
+      "type": "failure",
+      "label": "Cancelled",
+      "sublabel": "detenido",
+      "lane": "terminal",
+      "col": 1,
+      "tag": "terminal"
+    },
+    {
+      "id": "failed",
+      "type": "failure",
+      "label": "Failed",
+      "sublabel": "excepción",
+      "lane": "terminal",
+      "col": 2,
+      "tag": "terminal"
+    }
+  ],
+  "transitions": [
+    {
+      "id": "queued-to-running",
+      "from": "queued",
+      "to": "running",
+      "label": "background task inicia"
+    },
+    {
+      "id": "running-to-completed",
+      "from": "running",
+      "to": "completed",
+      "label": "save_many() ok",
+      "variant": "emphasis"
+    },
+    {
+      "id": "cancel-signal",
+      "from": "running",
+      "to": "cancel_requested",
+      "label": "POST /cancel",
+      "variant": "security",
+      "labelAt": [479, 230]
+    },
+    {
+      "id": "cancel-confirmed",
+      "from": "cancel_requested",
+      "to": "cancelled",
+      "label": "loop detecta flag",
+      "variant": "security",
+      "channelX": 760,
+      "labelAt": [760, 390]
+    },
+    {
+      "id": "running-to-failed",
+      "from": "running",
+      "to": "failed",
+      "label": "excepción en task",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Flujo normal",
+      "items": [
+        "El API crea el run en queued y retorna run_id al instante",
+        "El background task actualiza a running antes de recolectar",
+        "completed se alcanza cuando todos los recursos están persistidos"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Cancelación cooperativa",
+      "items": [
+        "POST /{run_id}/cancel registra una señal en CancellationRegistry",
+        "El loop de cuentas comprueba la señal entre cada cuenta",
+        "El run se marca cancelled con los recursos recolectados hasta ese punto"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Fallo",
+      "items": [
+        "Una excepción no controlada en el background task marca failed",
+        "El mensaje de error queda en metadata del run",
+        "Los errores por colector no abortan el run completo"
+      ]
+    }
+  ]
+}
