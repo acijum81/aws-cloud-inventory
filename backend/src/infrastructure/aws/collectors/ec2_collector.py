@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from typing import Any
-
 from domain.entities.aws_resource import AWSResource
 from infrastructure.aws.collectors.base import resource, tags_from_aws
 

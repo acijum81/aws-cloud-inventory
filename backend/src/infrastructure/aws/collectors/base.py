@@ -39,6 +39,7 @@ def resource(
     creation_time: datetime | None = None,
 ) -> AWSResource:
     tag_map = tags or {}
+    fingerprint = config_hash(raw_data)
     return AWSResource(
         resource_id=resource_id,
         arn=arn,
@@ -53,9 +54,9 @@ def resource(
         owner=tag_map.get("Owner") or tag_map.get("owner"),
         application=tag_map.get("Application") or tag_map.get("application"),
         cost_center=tag_map.get("CostCenter") or tag_map.get("cost-center"),
-        tags=tag_map,
+        tags={},
         creation_time=creation_time,
         last_seen_at=now_utc(),
-        raw_data=raw_data,
-        configuration_hash=config_hash(raw_data),
+        raw_data={},
+        configuration_hash=fingerprint,
     )

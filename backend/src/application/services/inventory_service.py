@@ -8,7 +8,7 @@ from domain.entities.aws_resource import AWSResource
 from infrastructure.aws.collectors import MVP_COLLECTORS
 from infrastructure.aws.discovery.organization import OrganizationDiscovery, AwsAccount
 from infrastructure.aws.discovery.regions import RegionDiscovery
-from infrastructure.aws.inventory_runner import InventoryResult, InventoryRunner
+from infrastructure.aws.inventory_runner import InventoryRunner
 from infrastructure.aws.session_factory import AwsSessionFactory
 from infrastructure.database.repository import ResourceRepository
 from application.services.cancellation import cancellation_registry

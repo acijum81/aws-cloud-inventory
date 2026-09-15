@@ -49,7 +49,7 @@ class ResourceRepository:
                 service=error.service,
                 operation=error.operation,
                 error_type=error.error_type,
-                message=error.message,
+                message="AWS collection error; inspect protected server logs using the correlation ID.",
                 occurred_at=now,
                 correlation_id=error.correlation_id,
             )

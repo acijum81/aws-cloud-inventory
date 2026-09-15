@@ -98,11 +98,11 @@ git clone <url-del-repositorio>
 cd aws-cloud-inventory-final
 ```
 
-### 2. Configurar variables de entorno (opcional)
+### 2. Configurar variables de entorno (obligatorio)
 
 ```bash
 cp .env.example .env
-# Editar .env si se necesitan valores distintos a los por defecto
+# Reemplazar todos los valores de ejemplo por secretos aleatorios.
 ```
 
 ### 3. Iniciar todos los servicios
@@ -111,8 +111,8 @@ cp .env.example .env
 podman-compose up --build
 ```
 
-Esto levanta tres servicios:
-- **postgres** — PostgreSQL 17 en `localhost:5432`
+Esto levanta tres servicios, publicados sólo en `127.0.0.1`:
+- **postgres** — PostgreSQL 17 en la red interna de Compose (sin puerto publicado)
 - **backend** — API FastAPI en `http://localhost:8000`
 - **frontend** — Dashboard React en `http://localhost:3000`
 
@@ -121,9 +121,9 @@ Esto levanta tres servicios:
 | Servicio | URL |
 |---|---|
 | Dashboard | http://localhost:3000 |
-| API (documentación interactiva) | http://localhost:8000/docs |
-| API (OpenAPI JSON) | http://localhost:8000/openapi.json |
 | Health check | http://localhost:8000/health |
+
+El dashboard solicita una API key en memoria; no se guarda en el navegador. La documentación OpenAPI está deshabilitada por defecto y sólo debe habilitarse temporalmente en desarrollo con `EXPOSE_API_DOCS=true`.
 
 ### 5. Detener los servicios
 
@@ -222,6 +222,12 @@ El esquema se crea automáticamente al arrancar el backend.
 | `DATABASE_URL` | Cadena de conexión a la base de datos | `sqlite:///./inventory.db` | URL SQLAlchemy |
 | `AWS_DEFAULT_REGION` | Región AWS por defecto para clientes boto3 | `us-east-1` | Código de región |
 | `AWS_INVENTORY_ROLE_NAME` | Nombre del rol IAM a asumir en cuentas destino | — | Cadena |
+| `INVENTORY_READ_API_KEY` | Clave para consultar inventario y exportaciones | — | Secreto aleatorio |
+| `INVENTORY_WRITE_API_KEY` | Clave para iniciar o cancelar inventarios | — | Secreto aleatorio |
+| `INVENTORY_ALLOWED_ACCOUNT_IDS` | Lista separada por comas de cuentas permitidas | — | IDs AWS de 12 dígitos |
+| `CORS_ALLOWED_ORIGINS` | Orígenes web autorizados | vacío (bloqueado) | URLs separadas por comas |
+| `MAX_CONCURRENT_INVENTORY_RUNS` | Máximo de inventarios simultáneos | `2` | Entero entre 1 y 16 |
+| `MAX_EXPORT_ROWS` | Máximo de filas por exportación | `10000` | Entero entre 1 y 10000 |
 
 ### Frontend
 
