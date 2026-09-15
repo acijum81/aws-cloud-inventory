@@ -16,6 +16,12 @@ Aplicación de inventario AWS orientada a producción, de solo lectura, con back
 - Frontend React con lanzador de inventario, historial de runs, filtros y exportación.
 - Podman Compose para PostgreSQL, API y frontend.
 
+## Diagrama de arquitectura
+
+![Arquitectura de AWS Cloud Inventory](docs/diagrams/architecture.png)
+
+El diagrama interactivo y su especificación se encuentran en [`docs/diagrams`](docs/diagrams/).
+
 ---
 
 ## Prerrequisitos
