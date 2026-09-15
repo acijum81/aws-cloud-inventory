@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Flujo de Ejecución de Inventario AWS</title>
+  <style>
+    :root { color-scheme: dark; --bg:#020617; --panel:#0f172a; --line:#334155; --text:#e2e8f0; --muted:#94a3b8; --green:#34d399; --cyan:#22d3ee; --amber:#fbbf24; --pink:#fb7185; }
+    * { box-sizing:border-box } body { margin:0; background:linear-gradient(135deg,#020617,#0f172a); color:var(--text); font:14px/1.45 system-ui,sans-serif; }
+    main { max-width:1440px; margin:auto; padding:32px 20px 48px; } h1 { margin:0; font-size:clamp(1.45rem,3vw,2rem) } .lead { color:var(--muted); margin:6px 0 24px; }
+    .diagram { overflow:auto; border:1px solid var(--line); border-radius:14px; background:#020617; box-shadow:0 18px 50px #0005; } svg { display:block; min-width:1000px; width:100%; height:auto; }
+    .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:14px; margin-top:20px; } .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; } .card h2 { font-size:1rem; margin:0 0 8px; } .card ul { padding-left:18px; color:var(--muted); margin:0; } .card li+li { margin-top:5px; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 id="title"></h1>
+    <p class="lead">Secuencia de lanzamiento, recolección AWS y persistencia.</p>
+    <div class="diagram"><svg id="diagram" role="img" aria-labelledby="title"></svg></div>
+    <section class="cards" id="cards" aria-label="Notas del diagrama"></section>
+  </main>
+  <script>
+    const data = {
+      title: 'Flujo de Ejecución de Inventario AWS',
+      participants: [['client','Postman','operador','external'],['api','FastAPI','POST /runs','backend'],['repo','Repository','PostgreSQL','database'],['svc','Inv. Service','background','backend'],['session','Session','STS Role','security'],['runner','Runner','10 colectores','backend'],['aws','AWS APIs','Describe*','cloud'],['db','PostgreSQL','recursos','database']],
+      segments: [[130,270,'Lanzamiento'],[290,550,'Recolección'],[560,677,'Persistencia y consulta']],
+      messages: [['client','api',165,'POST /api/v1/inventory-runs','emphasis'],['api','repo',196,'create_run(queued)'],['repo','api',224,'ok','return'],['api','client',254,'200 {run_id, status: queued}','return'],['svc','repo',310,'update_run(running)'],['svc','session',340,'create / assume role','security'],['session','svc',368,'boto3 Session','return'],['svc','runner',396,'collect global (S3, IAM)','emphasis'],['runner','aws',420,'ListBuckets / ListUsers'],['aws','runner',452,'recursos globales','return'],['svc','runner',480,'collect regional × región','emphasis'],['runner','aws',506,'Describe* por región'],['aws','runner',536,'recursos regionales','return'],['svc','repo',566,'save_many() + add_errors()','emphasis'],['repo','db',598,'INSERT resources / errors'],['svc','repo',628,'update_run(completed)'],['client','api',638,'GET /{run_id}'],['api','client',663,'200 {status: completed}','return']],
+      cards: [['Respuesta inmediata',['El API retorna run_id antes de recolectar.','La recolección corre como tarea en segundo plano.','El cliente puede sondear el estado del run.']],['Recolección en dos fases',['Global: S3 e IAM en us-east-1.','Regional: colectores por cada región habilitada.','Un error individual no aborta el run.']],['Credenciales AWS',['STS AssumeRole crea sesiones temporales.','No se persisten credenciales de larga duración.','boto3 reintenta hasta seis veces.']]]
+    };
+    const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    document.title = data.title; document.querySelector('#title').textContent = data.title;
+    const svg = document.querySelector('#diagram'), xs = Object.fromEntries(data.participants.map((p,i)=>[p[0],85+i*150]));
+    const color = kind => ({backend:'#34d399',database:'#a78bfa',security:'#fb7185',cloud:'#fbbf24',external:'#94a3b8'}[kind] || '#22d3ee');
+    let out = '<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8z" fill="#94a3b8"/></marker></defs><rect width="1220" height="730" fill="#020617"/>';
+    data.segments.forEach(s=>out += `<rect x="24" y="${s[0]}" width="1172" height="${s[1]-s[0]}" rx="8" fill="#0f172a" opacity=".7"/><text x="40" y="${s[0]+20}" fill="#94a3b8" font-size="12" font-weight="700">${esc(s[2]).toUpperCase()}</text>`);
+    data.participants.forEach(p=>{ const x=xs[p[0]], c=color(p[3]); out += `<rect x="${x-58}" y="34" width="116" height="58" rx="8" fill="#0f172a" stroke="${c}"/><text x="${x}" y="58" fill="#e2e8f0" text-anchor="middle" font-weight="700">${esc(p[1])}</text><text x="${x}" y="76" fill="#94a3b8" text-anchor="middle" font-size="11">${esc(p[2])}</text><path d="M${x} 92V695" stroke="#334155" stroke-dasharray="5 6"/>`; });
+    data.messages.forEach(m=>{ const x1=xs[m[0]], x2=xs[m[1]], c=m[4]==='emphasis'?'#34d399':m[4]==='security'?'#fb7185':'#94a3b8', dash=m[4]==='return'?' stroke-dasharray="5 4"':''; const anchor=x2>x1?'start':'end'; const tx=(x1+x2)/2; out += `<path d="M${x1} ${m[2]}H${x2}" stroke="${c}" stroke-width="${m[4]==='emphasis'?2:1.4}" fill="none" marker-end="url(#arrow)"${dash}/><text x="${tx}" y="${m[2]-7}" text-anchor="middle" fill="${c}" font-size="11" font-weight="600">${esc(m[3])}</text>`; });
+    svg.setAttribute('viewBox','0 0 1220 730'); svg.innerHTML=out;
+    document.querySelector('#cards').innerHTML=data.cards.map(c=>`<article class="card"><h2>${esc(c[0])}</h2><ul>${c[1].map(i=>`<li>${esc(i)}</li>`).join('')}</ul></article>`).join('');
+  </script>
+</body>
+</html>
