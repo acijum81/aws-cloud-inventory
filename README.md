@@ -33,7 +33,7 @@ El diagrama interactivo y su especificación se encuentran en [`docs/diagrams`](
 | Podman | 4.x | `podman --version` |
 | podman-compose | 1.x | `podman-compose --version` |
 | AWS CLI | v2 | `aws --version` |
-| Credenciales AWS activas | — | `aws sts get-caller-identity` |
+| Credenciales AWS activas | — | Se ingresan en el dashboard |
 
 > **Nota:** `podman-compose` se instala con `pip install podman-compose` o con el gestor de paquetes del sistema (p. ej. `brew install podman-compose` en macOS).
 
@@ -48,7 +48,8 @@ El diagrama interactivo y su especificación se encuentran en [`docs/diagrams`](
 
 ### Credenciales y permisos AWS
 
-La aplicación usa la cadena estándar de credenciales de Boto3 (variables de entorno, `~/.aws/credentials`, perfil de instancia, etc.). No se solicitan credenciales desde la interfaz de usuario.
+La aplicación solicita las credenciales AWS al iniciar cada inventario. Se recomienda
+usar una identidad IAM de solo lectura o credenciales temporales STS.
 
 Para inventario multi-cuenta se recomienda crear el rol `AWSInventoryReadOnlyRole` en cada cuenta destino con las siguientes acciones de solo lectura:
 
@@ -98,19 +99,13 @@ git clone <url-del-repositorio>
 cd aws-cloud-inventory-final
 ```
 
-### 2. Configurar variables de entorno (obligatorio)
+### 2. Iniciar todos los servicios
 
-```bash
-cp .env.example .env
-# Reemplazar todos los valores de ejemplo por secretos aleatorios.
-```
-
-Las credenciales AWS se solicitan en el dashboard al iniciar un inventario. El
+No hace falta crear `.env` ni configurar claves para usar la aplicación en el
+equipo local. Las credenciales AWS se solicitan en el dashboard al iniciar un inventario. El
 backend las valida con STS y las mantiene sólo en memoria durante ese run; no
 se guardan en PostgreSQL, logs ni `.env`. En producción, publica el dashboard
 únicamente mediante HTTPS y usa preferentemente credenciales temporales STS.
-
-### 3. Iniciar todos los servicios
 
 ```bash
 podman-compose up --build
@@ -121,16 +116,16 @@ Esto levanta tres servicios, publicados sólo en `127.0.0.1`:
 - **backend** — API FastAPI en `http://localhost:8000`
 - **frontend** — Dashboard React en `http://localhost:3000`
 
-### 4. Acceder a la aplicación
+### 3. Acceder a la aplicación
 
 | Servicio | URL |
 |---|---|
 | Dashboard | http://localhost:3000 |
 | Health check | http://localhost:8000/health |
 
-El dashboard solicita una API key en memoria; no se guarda en el navegador. La documentación OpenAPI está deshabilitada por defecto y sólo debe habilitarse temporalmente en desarrollo con `EXPOSE_API_DOCS=true`.
+La documentación OpenAPI está deshabilitada por defecto y sólo debe habilitarse temporalmente en desarrollo con `EXPOSE_API_DOCS=true`.
 
-### 5. Detener los servicios
+### 4. Detener los servicios
 
 ```bash
 podman-compose down
@@ -227,8 +222,9 @@ El esquema se crea automáticamente al arrancar el backend.
 | `DATABASE_URL` | Cadena de conexión a la base de datos | `sqlite:///./inventory.db` | URL SQLAlchemy |
 | `AWS_DEFAULT_REGION` | Región AWS por defecto para clientes boto3 | `us-east-1` | Código de región |
 | `AWS_INVENTORY_ROLE_NAME` | Nombre del rol IAM a asumir en cuentas destino | — | Cadena |
-| `INVENTORY_READ_API_KEY` | Clave para consultar inventario y exportaciones | — | Secreto aleatorio |
-| `INVENTORY_WRITE_API_KEY` | Clave para iniciar o cancelar inventarios | — | Secreto aleatorio |
+| `INVENTORY_API_AUTH_REQUIRED` | Activa protección por API key para un servidor público | `false` en Compose local | `true` o `false` |
+| `INVENTORY_READ_API_KEY` | Clave para consultar inventario y exportaciones cuando se activa la protección | — | Secreto aleatorio |
+| `INVENTORY_WRITE_API_KEY` | Clave para iniciar o cancelar inventarios cuando se activa la protección | — | Secreto aleatorio |
 | `INVENTORY_ALLOWED_ACCOUNT_IDS` | Lista opcional separada por comas de cuentas permitidas | vacío | IDs AWS de 12 dígitos |
 | `CORS_ALLOWED_ORIGINS` | Orígenes web autorizados | vacío (bloqueado) | URLs separadas por comas |
 | `MAX_CONCURRENT_INVENTORY_RUNS` | Máximo de inventarios simultáneos | `2` | Entero entre 1 y 16 |
@@ -242,11 +238,19 @@ El esquema se crea automáticamente al arrancar el backend.
 
 ---
 
-## Autenticación AWS
+## Uso local y despliegue público
 
-La aplicación nunca solicita claves de acceso desde la interfaz de usuario. Boto3 utiliza la cadena estándar de proveedores de credenciales. Para inventario multi-cuenta, `AwsSessionFactory.assume_role()` asume el rol `AWSInventoryReadOnlyRole` en cada cuenta destino mediante STS.
+El archivo Compose incluido está pensado para uso local: API y dashboard se
+publican únicamente en `127.0.0.1`, PostgreSQL no se publica y no requiere
+claves de configuración. Por ello las personas usuarias sólo deben abrir el
+dashboard e ingresar sus credenciales AWS de lectura.
 
-La interfaz de usuario es agnóstica al proveedor de identidad. Para entornos de producción se recomienda colocar OIDC/RBAC en el ingress o API Gateway.
+Antes de exponer la aplicación mediante Internet, configura HTTPS y un control
+de acceso. Como mínimo, define `INVENTORY_API_AUTH_REQUIRED=true`,
+`INVENTORY_READ_API_KEY`, `INVENTORY_WRITE_API_KEY` y `POSTGRES_PASSWORD` con
+valores aleatorios. Al activar esta opción, el dashboard solicitará la API key
+en memoria. Para organizaciones, OIDC/RBAC en el ingress o API Gateway es la
+alternativa recomendada.
 
 ---
 

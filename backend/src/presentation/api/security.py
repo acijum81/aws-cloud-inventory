@@ -11,6 +11,10 @@ def _setting(name: str) -> str:
     return os.getenv(name, "").strip()
 
 
+def api_auth_required() -> bool:
+    return _setting("INVENTORY_API_AUTH_REQUIRED").lower() in {"1", "true", "yes"}
+
+
 def allowed_account_ids() -> set[str]:
     return {account_id.strip() for account_id in _setting("INVENTORY_ALLOWED_ACCOUNT_IDS").split(",") if account_id.strip()}
 
@@ -20,6 +24,8 @@ def _matches(provided: str | None, expected: str) -> bool:
 
 
 def require_read_access(x_api_key: str | None = Header(default=None)) -> None:
+    if not api_auth_required():
+        return
     read_key = _setting("INVENTORY_READ_API_KEY")
     write_key = _setting("INVENTORY_WRITE_API_KEY")
     if not read_key or not write_key:
@@ -29,6 +35,8 @@ def require_read_access(x_api_key: str | None = Header(default=None)) -> None:
 
 
 def require_write_access(x_api_key: str | None = Header(default=None)) -> None:
+    if not api_auth_required():
+        return
     write_key = _setting("INVENTORY_WRITE_API_KEY")
     if not write_key:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="API authentication is not configured")

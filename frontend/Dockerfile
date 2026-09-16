@@ -1,5 +1,7 @@
 FROM node:22-alpine AS build
 WORKDIR /app
+ARG VITE_API_AUTH_REQUIRED=false
+ENV VITE_API_AUTH_REQUIRED=$VITE_API_AUTH_REQUIRED
 COPY package.json .
 RUN npm install
 COPY . .
