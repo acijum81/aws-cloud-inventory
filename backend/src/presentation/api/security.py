@@ -39,7 +39,7 @@ def require_write_access(x_api_key: str | None = Header(default=None)) -> None:
 def require_allowed_accounts(account_ids: list[str]) -> None:
     allowed = allowed_account_ids()
     if not allowed:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Inventory account allowlist is not configured")
+        return
     requested = set(account_ids)
     if not requested.issubset(allowed):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="One or more AWS accounts are not allowed")

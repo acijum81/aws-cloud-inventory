@@ -105,10 +105,10 @@ cp .env.example .env
 # Reemplazar todos los valores de ejemplo por secretos aleatorios.
 ```
 
-Para usar credenciales IAM por access key, agrega `AWS_ACCESS_KEY_ID` y
-`AWS_SECRET_ACCESS_KEY` en `.env`. Si usas credenciales temporales de STS,
-agrega también `AWS_SESSION_TOKEN`. Estas variables se inyectan sólo en el
-contenedor backend y `.env` no se versiona.
+Las credenciales AWS se solicitan en el dashboard al iniciar un inventario. El
+backend las valida con STS y las mantiene sólo en memoria durante ese run; no
+se guardan en PostgreSQL, logs ni `.env`. En producción, publica el dashboard
+únicamente mediante HTTPS y usa preferentemente credenciales temporales STS.
 
 ### 3. Iniciar todos los servicios
 
@@ -226,13 +226,10 @@ El esquema se crea automáticamente al arrancar el backend.
 |---|---|---|---|
 | `DATABASE_URL` | Cadena de conexión a la base de datos | `sqlite:///./inventory.db` | URL SQLAlchemy |
 | `AWS_DEFAULT_REGION` | Región AWS por defecto para clientes boto3 | `us-east-1` | Código de región |
-| `AWS_ACCESS_KEY_ID` | Access key usada por Boto3 dentro del backend | — | Credencial IAM |
-| `AWS_SECRET_ACCESS_KEY` | Secret key usada por Boto3 dentro del backend | — | Secreto IAM |
-| `AWS_SESSION_TOKEN` | Token para credenciales temporales STS | vacío | Token temporal |
 | `AWS_INVENTORY_ROLE_NAME` | Nombre del rol IAM a asumir en cuentas destino | — | Cadena |
 | `INVENTORY_READ_API_KEY` | Clave para consultar inventario y exportaciones | — | Secreto aleatorio |
 | `INVENTORY_WRITE_API_KEY` | Clave para iniciar o cancelar inventarios | — | Secreto aleatorio |
-| `INVENTORY_ALLOWED_ACCOUNT_IDS` | Lista separada por comas de cuentas permitidas | — | IDs AWS de 12 dígitos |
+| `INVENTORY_ALLOWED_ACCOUNT_IDS` | Lista opcional separada por comas de cuentas permitidas | vacío | IDs AWS de 12 dígitos |
 | `CORS_ALLOWED_ORIGINS` | Orígenes web autorizados | vacío (bloqueado) | URLs separadas por comas |
 | `MAX_CONCURRENT_INVENTORY_RUNS` | Máximo de inventarios simultáneos | `2` | Entero entre 1 y 16 |
 | `MAX_EXPORT_ROWS` | Máximo de filas por exportación | `10000` | Entero entre 1 y 10000 |
