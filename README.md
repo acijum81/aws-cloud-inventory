@@ -105,6 +105,11 @@ cp .env.example .env
 # Reemplazar todos los valores de ejemplo por secretos aleatorios.
 ```
 
+Para usar credenciales IAM por access key, agrega `AWS_ACCESS_KEY_ID` y
+`AWS_SECRET_ACCESS_KEY` en `.env`. Si usas credenciales temporales de STS,
+agrega también `AWS_SESSION_TOKEN`. Estas variables se inyectan sólo en el
+contenedor backend y `.env` no se versiona.
+
 ### 3. Iniciar todos los servicios
 
 ```bash
@@ -221,6 +226,9 @@ El esquema se crea automáticamente al arrancar el backend.
 |---|---|---|---|
 | `DATABASE_URL` | Cadena de conexión a la base de datos | `sqlite:///./inventory.db` | URL SQLAlchemy |
 | `AWS_DEFAULT_REGION` | Región AWS por defecto para clientes boto3 | `us-east-1` | Código de región |
+| `AWS_ACCESS_KEY_ID` | Access key usada por Boto3 dentro del backend | — | Credencial IAM |
+| `AWS_SECRET_ACCESS_KEY` | Secret key usada por Boto3 dentro del backend | — | Secreto IAM |
+| `AWS_SESSION_TOKEN` | Token para credenciales temporales STS | vacío | Token temporal |
 | `AWS_INVENTORY_ROLE_NAME` | Nombre del rol IAM a asumir en cuentas destino | — | Cadena |
 | `INVENTORY_READ_API_KEY` | Clave para consultar inventario y exportaciones | — | Secreto aleatorio |
 | `INVENTORY_WRITE_API_KEY` | Clave para iniciar o cancelar inventarios | — | Secreto aleatorio |
